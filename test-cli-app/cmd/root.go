@@ -11,7 +11,7 @@ var rootCmd = &cobra.Command{
 	Use:   "test-cli-app",
 	Short: "test-cli-app is a CLI application",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Hello from test-cli-app!")
+		fmt.Println("Hello from test-cli-app!, testing release")
 	},
 }
 
