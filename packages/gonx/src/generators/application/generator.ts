@@ -8,6 +8,7 @@ import {
 } from '../../utils';
 import type { ApplicationGeneratorSchema } from './schema';
 import initGenerator from '../init/generator';
+import goreleaserGenerator from '../goreleaser/generator';
 
 export default async function applicationGenerator(
   tree: Tree,
@@ -34,6 +35,8 @@ export default async function applicationGenerator(
   if (isGoWorkspace(tree)) {
     addGoWorkDependency(tree, options.projectRoot);
   }
+
+  goreleaserGenerator(tree, 'application', options);
 
   if (!options.skipFormat) {
     await formatFiles(tree);

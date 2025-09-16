@@ -8,6 +8,7 @@ import {
 } from '../../utils';
 import { LibraryGeneratorSchema } from './schema';
 import initGenerator from '../init/generator';
+import goreleaserGenerator from '../goreleaser/generator';
 
 export default async function libraryGenerator(
   tree: Tree,
@@ -32,6 +33,8 @@ export default async function libraryGenerator(
   if (isGoWorkspace(tree)) {
     addGoWorkDependency(tree, options.projectRoot);
   }
+
+  goreleaserGenerator(tree, 'library', options);
 
   if (!options.skipFormat) {
     await formatFiles(tree);

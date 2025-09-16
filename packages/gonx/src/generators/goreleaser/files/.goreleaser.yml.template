@@ -1,0 +1,24 @@
+# Basic GoReleaser configuration template
+# See https://goreleaser.com for more options
+
+project_name: <%= moduleName %>
+
+builds:
+  - id: <%= moduleName %>
+    main: ./main.go
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    binary: "<%= moduleName %>"
+
+archives:
+  - format: tar.gz
+    name_template: "<%= moduleName %>_{{.Version}}_{{.Os}}_{{.Arch}}"
+
+release:
+  name_template: "<%= moduleName %>-{{.Version}}"
+  prerelease: auto

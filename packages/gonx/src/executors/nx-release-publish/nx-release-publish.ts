@@ -78,25 +78,46 @@ function getLatestVersionFromGit(
     // Replace {version} with a wildcard in the pattern for the git command
     const gitPattern = tagPattern.replace('{version}', '*');
 
-    // Command to get the latest tag matching our pattern
-    const gitTagCmd = `git tag --sort=-v:refname | grep -E "${gitPattern}" | head -n 1 || echo "${tagPattern.replace(
-      '{version}',
-      '0.0.0'
-    )}"`;
+    const gitTagCmd = `git tag --sort=-v:refname`;
+    const allTags = execSync(gitTagCmd, {
+      env: processEnv(true),
+      cwd: moduleRoot,
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim()
+      .split('\n');
 
-    output.logSingleLine(`Running: ${gitTagCmd}`);
-    const latestTag = execSync(gitTagCmd, {
+    const tagRegex = new RegExp('^' + gitPattern.replace('*', '.*') + '$');
+    const matchingTags = allTags.filter((tag) => tagRegex.test(tag));
+    const latestTag =
+      matchingTags[0] || tagPattern.replace('{version}', '0.0.0');
+
+    return latestTag;
+  } catch (err) {
+    console.warn(`Warning: Failed to get latest version from git: ${err}`);
+    return tagPattern.replace('{version}', '0.0.0');
+  }
+}
+
+/**
+ * Checks if there are changes in the moduleRoot since the latest tag
+ */
+function hasChangesSinceTag(moduleRoot: string, latestTag: string): boolean {
+  try {
+    // Get list of changed files since the latest tag
+    const gitDiffCmd = `git diff --name-only ${latestTag} HEAD -- .`;
+    const changedFiles = execSync(gitDiffCmd, {
       env: processEnv(true),
       cwd: moduleRoot,
       stdio: 'pipe',
     })
       .toString()
       .trim();
-
-    return latestTag;
+    return changedFiles.length > 0;
   } catch (err) {
-    console.warn(`Warning: Failed to get latest version from git: ${err}`);
-    return tagPattern.replace('{version}', '0.0.0');
+    console.warn(`Warning: Failed to check changes since tag: ${err}`);
+    return true;
   }
 }
 
@@ -158,6 +179,14 @@ export default async function runExecutor(
 
     output.logSingleLine(`Found latest version tag: ${currentTag}`);
 
+    // Check for changes since the latest tag
+    if (!hasChangesSinceTag(moduleRoot, currentTag)) {
+      output.logSingleLine(
+        `No changes detected in ${projectName} since last tag (${currentTag}). Skipping release.`
+      );
+      return { success: true };
+    }
+
     // Extract the version from the tag using regex based on the tag pattern
     let version = currentTag;
 
@@ -181,27 +210,31 @@ export default async function runExecutor(
       }
     }
 
-    // Prepare GOPROXY command - ensure version has proper format
-    const versionForCommand = version.startsWith('v') ? version : `v${version}`;
-    const goPublishCommand = `GOPROXY=proxy.golang.org go list -m ${moduleName}@${versionForCommand}`;
+    // Prepare GoReleaser command using .goreleaser.yml
+    const goReleaserConfigPath = joinPathFragments(
+      moduleRoot,
+      '.goreleaser.yml'
+    );
+    const goReleaserCommand = `goreleaser release --clean -f "${goReleaserConfigPath}"`;
 
     output.logSingleLine(
-      `Publishing ${chalk.bold(moduleName)} at version ${chalk.bold(
-        versionForCommand
-      )} (from tag ${chalk.bold(currentTag)})...`
+      `Releasing ${chalk.bold(moduleName)} at version ${chalk.bold(
+        version
+      )} (from tag ${chalk.bold(currentTag)}) using GoReleaser...`
     );
 
     if (isDryRun) {
-      console.log(`Would run: ${goPublishCommand}`);
+      console.log(`Would run: ${goReleaserCommand}`);
       console.log(
-        `Would publish module ${chalk.cyan(moduleName)} at version ${chalk.cyan(
-          versionForCommand
-        )} to the Go proxy, but ${chalk.keyword('orange')('[dry-run]')} was set`
+        `Would run GoReleaser for module ${chalk.cyan(
+          moduleName
+        )} at version ${chalk.cyan(version)}, but ${chalk.keyword('orange')(
+          '[dry-run]'
+        )} was set`
       );
     } else {
-      output.logSingleLine(`Running "${goPublishCommand}"...`);
-
-      execSync(goPublishCommand, {
+      output.logSingleLine(`Running "${goReleaserCommand}"...`);
+      execSync(goReleaserCommand, {
         maxBuffer: LARGE_BUFFER,
         env: processEnv(true),
         cwd: moduleRoot,
@@ -210,9 +243,7 @@ export default async function runExecutor(
 
       console.log('');
       console.log(
-        `Published ${chalk.cyan(moduleName)}@${chalk.cyan(
-          versionForCommand
-        )} to Go proxy`
+        `GoReleaser ran for ${chalk.cyan(moduleName)}@${chalk.cyan(version)}`
       );
     }
 

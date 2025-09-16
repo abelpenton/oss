@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "@naxodev/gonx:goreleaser",
+  "title": "Goreleaser Generator Schema",
+  "type": "object",
+  "properties": {
+    "moduleName": {
+      "type": "string",
+      "description": "The name of the Go module."
+    }
+  },
+  "required": ["moduleName"]
+}
