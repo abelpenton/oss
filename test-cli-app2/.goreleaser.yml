@@ -1,0 +1,26 @@
+# Basic GoReleaser configuration template
+# See https://goreleaser.com for more options
+
+version: 2
+
+project_name: testcliapp2
+
+builds:
+  - id: testcliapp2
+    main: ./main.go
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    binary: 'testcliapp2'
+
+archives:
+  - format: tar.gz
+    name_template: 'testcliapp2_{{.Version}}_{{.Os}}_{{.Arch}}'
+
+release:
+  name_template: 'testcliapp2-{{.Version}}'
+  prerelease: auto
