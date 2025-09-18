@@ -1,6 +1,8 @@
 # Basic GoReleaser configuration template
 # See https://goreleaser.com for more options
 
+version: 2
+
 project_name: <%= moduleName %>
 
 builds:
