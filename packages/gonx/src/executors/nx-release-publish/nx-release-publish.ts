@@ -179,13 +179,13 @@ export default async function runExecutor(
 
     output.logSingleLine(`Found latest version tag: ${currentTag}`);
 
-    // Check for changes since the latest tag
-    if (!hasChangesSinceTag(moduleRoot, currentTag)) {
-      output.logSingleLine(
-        `No changes detected in ${projectName} since last tag (${currentTag}). Skipping release.`
-      );
-      return { success: true };
-    }
+    // // Check for changes since the latest tag
+    // if (!hasChangesSinceTag(moduleRoot, currentTag)) {
+    //   output.logSingleLine(
+    //     `No changes detected in ${projectName} since last tag (${currentTag}). Skipping release.`
+    //   );
+    //   return { success: true };
+    // }
 
     // Extract the version from the tag using regex based on the tag pattern
     let version = currentTag;

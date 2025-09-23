@@ -1,0 +1,26 @@
+# Basic GoReleaser configuration template
+# See https://goreleaser.com for more options
+
+version: 2
+
+project_name: cliapp1
+
+builds:
+  - id: cliapp1
+    main: ./main.go
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    binary: 'cliapp1'
+
+archives:
+  - format: tar.gz
+    name_template: 'cliapp1_{{.Version}}_{{.Os}}_{{.Arch}}'
+
+release:
+  name_template: 'cliapp1-{{.Version}}'
+  prerelease: auto
