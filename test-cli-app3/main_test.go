@@ -6,7 +6,7 @@ func TestMain(t *testing.T) {
 	// Basic test to ensure main doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("main() panicked1: %v", r)
+			t.Errorf("main() panicked12: %v", r)
 		}
 	}()
 }
