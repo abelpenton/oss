@@ -69,15 +69,19 @@ function getReleaseTagPattern(
  * @param projectName Name of the project
  * @returns The latest version tag
  */
-function getLatestVersionFromGit(
+
+/**
+ * Gets the latest and previous version tags from git based on the pattern
+ * @param moduleRoot Root directory of the module
+ * @param tagPattern Pattern to match tags
+ * @returns [latestTag, previousTag]
+ */
+function getLatestAndPreviousTagsFromGit(
   moduleRoot: string,
   tagPattern: string
-): string {
+): [string, string] {
   try {
-    // Create a git command that finds the latest tag matching our pattern
-    // Replace {version} with a wildcard in the pattern for the git command
     const gitPattern = tagPattern.replace('{version}', '*');
-
     const gitTagCmd = `git tag --sort=-v:refname`;
     const allTags = execSync(gitTagCmd, {
       env: processEnv(true),
@@ -90,13 +94,13 @@ function getLatestVersionFromGit(
 
     const tagRegex = new RegExp('^' + gitPattern.replace('*', '.*') + '$');
     const matchingTags = allTags.filter((tag) => tagRegex.test(tag));
-    const latestTag =
-      matchingTags[0] || tagPattern.replace('{version}', '0.0.0');
-
-    return latestTag;
+    const latestTag = matchingTags[0] || tagPattern.replace('{version}', '0.0.0');
+    const previousTag = matchingTags[1] || tagPattern.replace('{version}', '0.0.0');
+    return [latestTag, previousTag];
   } catch (err) {
-    console.warn(`Warning: Failed to get latest version from git: ${err}`);
-    return tagPattern.replace('{version}', '0.0.0');
+    console.warn(`Warning: Failed to get latest/previous version from git: ${err}`);
+    const fallback = tagPattern.replace('{version}', '0.0.0');
+    return [fallback, fallback];
   }
 }
 
@@ -167,30 +171,33 @@ export default async function runExecutor(
     const tagPattern = getReleaseTagPattern(context.root, projectName);
     output.logSingleLine(`Using release tag pattern: ${tagPattern}`);
 
-    // Get the current version (tag) based on the pattern
-    const currentTag = getLatestVersionFromGit(moduleRoot, tagPattern);
+    // Get the latest and previous tags based on the pattern
+    const [latestTag, previousTag] = getLatestAndPreviousTagsFromGit(moduleRoot, tagPattern);
 
-    if (!currentTag) {
-      output.error({
-        title: `Could not determine current version for ${projectName}. Please make sure there is at least one tag that matches the pattern ${tagPattern}.`,
-      });
-      return { success: false };
-    }
 
-    output.logSingleLine(`Found latest version tag: ${currentTag}`);
-
-    // Check for changes since the latest tag
-    if (!hasChangesSinceTag(moduleRoot, currentTag)) {
+    // If no tag is found (i.e., fallback value), skip the release
+    const fallbackTag = tagPattern.replace('{version}', '0.0.0');
+    if (!latestTag || latestTag === fallbackTag) {
       output.logSingleLine(
-        `No changes detected in ${projectName} since last tag (${currentTag}). Skipping release.`
+        `No tag found matching pattern ${tagPattern} for ${projectName}. Skipping release.`
       );
       return { success: true };
     }
 
-    // Extract the version from the tag using regex based on the tag pattern
-    let version = currentTag;
+    output.logSingleLine(`Found latest version tag: ${latestTag}`);
+    output.logSingleLine(`Found previous version tag: ${previousTag}`);
 
-    // Create a regex pattern from the tag pattern, replacing {version} with a capturing group
+    // Check for changes since the previous tag (not the latest)
+    if (!hasChangesSinceTag(moduleRoot, previousTag)) {
+      output.logSingleLine(
+        `No changes detected in ${projectName} since previous tag (${previousTag}). Skipping release.`
+      );
+      return { success: true };
+    }
+
+    // Extract the version from the latest tag using regex based on the tag pattern
+    let version = latestTag;
+
     if (tagPattern.includes('{version}')) {
       // Escape special regex characters in the tag pattern
       const escapeRegex = (str: string) =>
@@ -203,7 +210,7 @@ export default async function runExecutor(
 
       // Create regex and try to match
       const regex = new RegExp(`^${regexPattern}$`);
-      const match = currentTag.match(regex);
+      const match = latestTag.match(regex);
 
       if (match && match[1]) {
         version = match[1];
@@ -220,7 +227,7 @@ export default async function runExecutor(
     output.logSingleLine(
       `Releasing ${chalk.bold(moduleName)} at version ${chalk.bold(
         version
-      )} (from tag ${chalk.bold(currentTag)}) using GoReleaser...`
+      )} (from tag ${chalk.bold(latestTag)}) using GoReleaser...`
     );
 
     if (isDryRun) {
